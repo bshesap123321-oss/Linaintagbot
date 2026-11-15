@@ -1,123 +1,110 @@
-# 🤖 AI Influencer Bot
+# 🎿 AI İçerik Botu: kar maskesi markası için
 
-Sanal bir karakter için her gün **kendi kendine** fotoğraf üretip Instagram'da paylaşan bot.
-Bilgisayarınız kapalıyken de çalışır. GitHub'ın ücretsiz sunucularında, her gün sizin seçtiğiniz saatte.
+Her gün **kendi kendine** fotoğraf ya da Reels videosu üretip Instagram'da paylaşan bot.
+Sizin ürünlerinizi, sizin karakter kadronuz (Lina, Ahmet, Mehmet, Zeynep...) takar; kayakta,
+telesiyejde, pist başında komik anlar yaşarlar. Bilgisayarınız kapalıyken de çalışır.
 
 ```
- Fikir ajanı ──► Prompt ajanı ──► Görsel ajanı ──► Kontrol ajanı ──► Açıklama ajanı ──► Instagram
- (bugün ne?)     (sabit yüz)      (Gemini)         (beğenmezse       (karakterin        (AI etiketiyle
-                                                    yeniden çizdirir)  ağzından)          paylaşır)
+ Planlayıcı ─► Fikir ajanı ─► Prompt ajanı ─► Görsel ajanı ─► Kontrol ─► (Video ajanı ─► Kontrol) ─► Açıklama ─► Instagram
+ (bugün hangi   (komik an)     (yüzler ve      (Gemini)       (ürün,     (Veo, 8 sn dikey)               (marka dili,  (AI etiketiyle)
+  ürün, sahne,                  maske birebir)                 yüz, el)                                   fiyat, DM)
+  kimler?)
 ```
 
 ## Neler yapar?
-
-- **Her gün farklı içerik:** Temaları ağırlığına göre seçer, son 20 paylaşımı tekrar etmez, mevsime uygun kıyafet seçer.
-- **Hep aynı yüz:** Referans fotoğraflar ve sabit karakter tarifi her görselde kullanılır.
-- **Kalite kontrolü:** Ayrı bir ajan her görseli puanlar. Yüz benzemiyorsa, el bozuksa ya da yazı veya logo varsa düzeltme talimatıyla yeniden ürettirir. Hiçbir görsel geçmezse o gün **paylaşım yapmaz**, kötü görsel asla yayınlanmaz.
-- **Doğal açıklamalar:** Karakterin kişiliği ve ses tonuyla, fotoğrafa bakarak yazar. Hashtag'leri temizler, tekrarları ayıklar, Instagram sınırlarına uyar.
-- **Şeffaflık:** Instagram'ın resmi "Yapay zekâ bilgisi" etiketini otomatik ekler ve açıklamaya not düşer.
-- **Kayıt:** Her paylaşımın görseli, prompt'u, puanları ve açıklaması `posts/` klasöründe saklanır.
-- **Bakım gerektirmez:** Instagram token'ı her ay otomatik yenilenir. Hata olursa GitHub size e-posta atar.
-- **Başka karaktere uyarlanabilir:** Sadece `persona.yaml` dosyasını değiştirmeniz yeterli.
+- **Adil sırayla döner:** En uzun süredir paylaşılmayan ürünü ve karakterleri seçer, dünkü sahneyi tekrar etmez.
+- **Ürününüz birebir çıkar:** Ürün fotoğraflarınız her görselde referans olarak kullanılır. Kontrol ajanı maske farklı çizildiyse görseli reddeder.
+- **Yüzler tutarlı kalır:** Her karakterin sabit tarifi ve referans fotoğrafı her seferinde kullanılır.
+- **Fotoğraf ve Reels:** `brand.yaml` dosyasındaki oranlara göre bazen fotoğraf, bazen 8 saniyelik dikey video paylaşır.
+- **Kötü içerik paylaşmaz:** Ayrı bir ajan her görseli ve videoyu puanlar, beğenmezse düzeltme talimatıyla yeniden ürettirir. Hiçbiri geçmezse o gün paylaşım yapmaz.
+- **Satış odaklı açıklama:** Komik bir açılış cümlesi, ürün adı, fiyat ve bedenler, "DM'den MASKE yazın" çağrısı ve hashtag'ler.
+- **Şeffaf:** Instagram'ın resmi "Yapay zekâ bilgisi" etiketini otomatik ekler.
+- **Başka markaya uyarlanabilir:** `brand.yaml`, `cast/` ve `products/` değişir, kod değişmez.
 
 ---
 
-## Kurulum (yaklaşık 30 dakika, bir kez)
+## Kurulum (bir kez)
 
-### 1. Instagram hesabını hazırla
-1. Karakter için bir Instagram hesabı aç.
-2. **Ayarlar → Hesap türü ve araçlar → Profesyonel hesaba geç** yolunu izle. "İçerik üreticisi" ya da "İşletme" seçebilirsin.
+### 1. GitHub ayarları
+- **Settings → Actions → General → Workflow permissions** altında **Read and write permissions** seç ve kaydet.
+- **Settings → Pages → Build and deployment → Source** altında **GitHub Actions** seç. Fotoğraf ve videolar Instagram'a buradan gider. Depo **Public** olmalı.
 
-### 2. Instagram erişim anahtarını al
-1. [developers.facebook.com](https://developers.facebook.com) adresinde **Uygulamalarım → Uygulama oluştur** de, tür olarak **İşletme** seç.
-2. Uygulamaya **Instagram** ürününü ekle ve **API setup with Instagram login** bölümünü aç.
-3. **Add account** ile karakterin Instagram hesabını bağla. Gerekirse Instagram'da *Ayarlar → Uygulamalar ve web siteleri* kısmından daveti kabul et.
-4. **Generate token** ile token üret. Bu **60 gün geçerli** bir anahtardır; bot onu her ay kendisi yeniler.
-5. Token'ı ve hesap kimliğini (Instagram user ID) bir kenara not et.
-
-> Kendi hesaplarınız için uygulama incelemesi (App Review) gerekmez; uygulama "Geliştirme" modunda kalabilir.
-
-### 3. Gemini API anahtarını al
-1. [aistudio.google.com](https://aistudio.google.com) adresine git ve **Get API key → Create API key** de.
-2. Görsel üretimi için Google Cloud'da **faturalandırmayı açman** gerekebilir. Güncel fiyatlara Google'ın fiyat sayfasından bak.
-
-### 4. Referans fotoğrafı oluştur
-Gemini uygulamasında aşağıdaki gibi bir prompt ile 5-10 deneme yap ve en beğendiğin 1-3 fotoğrafı `references/` klasörüne koy:
-
-```
-Photorealistic studio portrait of a 24-year-old woman, light olive skin, shoulder-length wavy
-dark brown hair, hazel eyes, subtle freckles, natural makeup, elegant tall slim figure.
-Front-facing, neutral expression, plain light grey background, soft even light, 85mm lens.
-```
-Karakterin yüzü artık bu fotoğraf. Sonradan değiştirmeyin.
-
-### 5. GitHub'a yükle
-1. [github.com](https://github.com) üzerinde **New repository** oluştur. **Public** seç (görseller Instagram'a buradan gider).
-   Depoyu gizli tutmak istersen **Private** seç ve 7. adımdaki *imgbb* seçeneğini kullan.
-2. **Add file → Upload files** ile bu klasördeki her şeyi sürükleyip bırak. `.github` klasörü de dahil olmalı.
-3. **Settings → Actions → General → Workflow permissions** altında **Read and write permissions** seç ve kaydet.
-
-### 6. Anahtarları ekle
+### 2. Anahtarlar
 **Settings → Secrets and variables → Actions → New repository secret:**
 
-| Secret adı | Değer |
+| Ad (birebir) | Nereden |
 |---|---|
-| `GEMINI_API_KEY` | 3. adımdaki anahtar |
-| `IG_ACCESS_TOKEN` | 2. adımdaki token |
-| `IG_USER_ID` | 2. adımdaki hesap kimliği (boş bırakılırsa otomatik bulunur) |
-| `GH_PAT` | *Önerilir.* Token'ın otomatik yenilenmesi için, aşağıya bakın |
+| `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → Get API key. Görsel ve video için faturalandırmayı açın |
+| `IG_ACCESS_TOKEN` | Aşağıdaki "Instagram token" adımları |
+| `IG_USER_ID` | İsteğe bağlı, boş bırakılırsa otomatik bulunur |
+| `GH_PAT` | Önerilir: token'ın her ay otomatik yenilenmesi için (aşağıda) |
 
-**`GH_PAT` nasıl alınır:** GitHub'da **Settings → Developer settings → Fine-grained tokens → Generate new token** yolunu izle. Sadece bu depoyu seç ve **Secrets: Read and write** iznini ver. Süreyi 1 yıl yap.
+**Instagram token:**
+1. Instagram hesabınızın **Profesyonel hesap** (İşletme veya İçerik üreticisi) olduğundan emin olun.
+2. [developers.facebook.com](https://developers.facebook.com) adresinde **Uygulama oluştur** deyin ve türü **İşletme** seçin.
+3. **Instagram** ürününü ekleyin ve **API setup with Instagram login** bölümünü açın.
+4. **Add account** ile hesabınızı bağlayın, ardından **Generate token** ile token üretin. Token 60 gün geçerlidir.
 
-### 7. (İsteğe bağlı) Ayarlar
-**Settings → Secrets and variables → Actions → Variables** sekmesi:
+**GH_PAT:** GitHub'da **Settings → Developer settings → Fine-grained tokens** yolunu izleyin. Sadece bu depoyu seçin, **Secrets: Read and write** iznini verin, süreyi 1 yıl yapın.
 
-| Değişken | Ne işe yarar |
-|---|---|
-| `IMAGE_HOST` | `github` (varsayılan, public depo) veya `imgbb` (private depo; ayrıca `IMGBB_API_KEY` secret'ı ekleyin, [api.imgbb.com](https://api.imgbb.com) adresinden ücretsiz alınır) |
-| `GEMINI_IMAGE_MODEL` | Görsel modeli. Varsayılan `gemini-3.1-flash-image` (Nano Banana 2). Daha kaliteli sonuç için AI Studio'daki model listesinden Nano Banana Pro'nun kimliğini yazın |
-| `GEMINI_TEXT_MODEL` | Metin modeli. Varsayılan `gemini-flash-latest` |
-| `DRY_RUN` | `true` yapılırsa üretir ama paylaşmaz |
+### 3. Ürünlerinizi ekleyin
+Her ürün için `products/` altında bir klasör açın, örneğin `products/biyikli-amca/`:
+- `product.yaml`: ad, görsel tarif, fiyat, bedenler (örnek dosyalar hazır, kendi bilgilerinizle değiştirin)
+- **1-3 ürün fotoğrafı:** Düz zemin, gün ışığı, önden çekilmiş; mümkünse biri bir kafaya takılı halde. *En önemli adım budur.*
 
-### 8. İlk deneme
-1. **Actions → Günlük paylaşım → Run workflow** yolunu izle. **Deneme modu** kutusunu işaretle ve çalıştır.
-2. Bitince çalışmaya tıkla. Özet sayfasında üretilen açıklamayı ve puanları görürsün. Görsel `posts/` klasöründedir.
-3. Sonuç iyiyse kutuyu işaretlemeden bir kez daha çalıştır. **İlk paylaşım yapılır** 🎉
+Satışta olmayan bir ürün için `active: false` yazmanız yeterli.
+
+### 4. Karakter fotoğrafları
+Her karakter için `cast/<isim>/` klasörüne 1-2 referans fotoğrafı koyun. Gemini uygulamasında aşağıdaki gibi bir prompt ile üretebilirsiniz:
+```
+Photorealistic studio portrait of [brand.yaml'daki appearance satırı]. Front-facing,
+neutral expression, plain light grey background, soft even light, 85mm lens.
+```
+Fotoğraf koymazsanız bot yine çalışır ama yüzler her gün biraz farklı çıkar. Maskeli sahnelerde bu pek belli olmaz.
+
+### 5. İlk deneme
+1. **Actions → Günlük paylaşım → Run workflow** yolunu izleyin. **Deneme modu** kutusunu işaretleyin, türü seçin ve çalıştırın.
+2. Bitince çalışmaya tıklayın. Özette plan, puanlar ve açıklama görünür; dosyalar `posts/` klasöründedir.
+3. Beğendiyseniz kutuyu işaretlemeden çalıştırın. **İlk paylaşım yapılır** 🎉
 
 Bundan sonra bot her gün **19:00'da (TR)** kendisi paylaşır.
 
 ---
 
-## Özelleştirme
+## Özelleştirme (`brand.yaml`)
 
 | Ne istiyorsunuz? | Nereyi değiştirin? |
 |---|---|
-| Karakterin kişiliği, temalar, ses tonu, hashtag'ler | `persona.yaml` |
-| Paylaşım saati | `.github/workflows/daily-post.yml` → `cron` satırı (saat UTC'dir, TR = UTC+3) |
-| Günde 2 paylaşım | Aynı dosyada `cron` satırının altına ikinci bir `- cron:` ekleyin |
-| Daha katı ya da gevşek kalite kontrolü | `persona.yaml` → `review.min_score` |
-| Başka bir karakter | `persona.yaml` + `references/` klasöründeki fotoğraflar |
+| Yeni karakter | `cast:` listesine ekleyin ve `cast/<id>/` klasörü açın |
+| Yeni sahne | `scenes:` listesine ekleyin; `people: [2, 3]` sahnede kaç kişi olacağını belirler |
+| Daha çok video | `formats:` örneğin `image: 1, reel: 2` |
+| Marka dili, satış cümlesi | `voice`, `call_to_action` |
+| Paylaşım saati | `.github/workflows/daily-post.yml` → `cron` (saat UTC'dir, TR = UTC+3) |
+| Kalite eşiği | `review.min_score` |
+
+## Maliyet ve süre
+- Fotoğraf gönderisi: birkaç dakika, düşük maliyet.
+- Reels: 5-15 dakika. Veo video üretimi görsele göre belirgin şekilde daha pahalıdır. Güncel fiyat için Google'ın Gemini API fiyat sayfasına bakın.
+  Maliyeti düşürmek için `formats.reel` değerini azaltın ya da `GEMINI_VIDEO_MODEL` değişkenine daha ucuz bir Veo modeli yazın.
 
 ## Sorun giderme
 
 | Hata | Çözüm |
 |---|---|
-| `Eksik ayar: GEMINI_API_KEY` | Secret adı tam olarak böyle mi? |
-| `Görsel URL'sine ulaşılamadı` | Depo **public** olmalı, ya da `IMAGE_HOST=imgbb` kullanın |
-| `Instagram API hatası ... kod 190` | Token süresi dolmuş. Yeni token alıp `IG_ACCESS_TOKEN` secret'ını güncelleyin ve `GH_PAT` ekleyin |
-| `3 denemede kaliteli görsel çıkmadı` | Normaldir, bot o gün paylaşmadı. Sık oluyorsa referans fotoğrafı iyileştirin veya `min_score` değerini 6 yapın |
-| Gemini `429` / kota hatası | Faturalandırmanın açık olduğunu kontrol edin |
+| `Eksik ayar: GEMINI_API_KEY` | Secret adını kontrol edin: büyük harf, noktasız I |
+| `Dosyaya 10 dakikada ulaşılamadı` | Depo Public mi? **Settings → Pages → Source = GitHub Actions** seçili mi? |
+| `Instagram API hatası ... kod 190` | Token süresi dolmuş. Yenisini alın ve `GH_PAT` ekleyin |
+| `kaliteli görsel çıkmadı` | Bot o gün paylaşmadı. Ürün fotoğraflarını iyileştirin ya da `min_score` değerini 6 yapın |
+| Gemini `429` | Faturalandırma açık mı? |
 
-Kendi bilgisayarınızda test etmek için:
+Bilgisayarda test etmek için:
 ```bash
-pip install -r requirements.txt
-export GEMINI_API_KEY=... IG_ACCESS_TOKEN=... DRY_RUN=true
-python -m influencer_bot check      # anahtarları ve ayarları doğrular
-python -m influencer_bot generate   # bir taslak üretir (posts/ klasörüne)
-python -m pytest -q                 # testler (internet gerektirmez)
+pip install -r requirements.txt pytest
+python -m pytest -q                                   # testler (internet gerekmez)
+GEMINI_API_KEY=... DRY_RUN=true python -m influencer_bot check
 ```
 
-## Önemli notlar
-- Instagram hesap başına 24 saatte en fazla 50 API paylaşımına izin verir. Günde 1-3 paylaşım hem güvenli hem doğaldır.
-- Gerçek kişilere benzeyen karakterler, marka logoları ve reşit olmayanlar `content_rules` ile engellenir. Bu kuralları kaldırmayın.
-- Takipçi satın almak ya da otomatik beğeni/takip yapmak Instagram kurallarına aykırıdır ve hesabı kapattırabilir. Bu bot sadece içerik paylaşır.
+## Dikkat
+- Başka markaların adlarını veya logolarını (örneğin LEGO) ürün adında, açıklamada ya da görselde kullanmayın. Bot görsellerde bunu zaten engeller.
+- Ücretli reklamlarda sigara görseli Meta'nın reklam kurallarına takılabilir.
+- Takipçi satın almak ya da otomatik beğeni/takip yapmak hesabın kapanmasına yol açabilir. Bu bot sadece içerik paylaşır.

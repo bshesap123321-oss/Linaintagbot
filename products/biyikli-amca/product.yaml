@@ -1,0 +1,14 @@
+# ÖRNEK ÜRÜN: kendi bilgilerinizle değiştirin.
+# Bu klasöre ürünün 1-3 net fotoğrafını koyun (jpg/png). Düz zemin, gün ışığı,
+# önden; mümkünse biri bir kafaya takılı halde. Bot maskeyi bu fotoğraflara
+# bakarak birebir çizer.
+
+name: Bıyıklı Amca Kar Maskesi
+# Görsel tarif (İngilizce): fotoğrafları destekler, maskenin ne olduğunu anlatır.
+description: >-
+  Full-head stretch balaclava printed with a hyper-realistic face of a grumpy old man:
+  wrinkled bald forehead, bushy grey eyebrows, big thick white handlebar mustache,
+  ruddy cheeks. Opening only around the eyes, worn with ski goggles on top.
+price: "[FİYAT] TL"
+sizes: Tek beden (yetişkin)
+active: true

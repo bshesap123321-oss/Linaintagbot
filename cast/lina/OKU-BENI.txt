@@ -1,0 +1,3 @@
+Bu klasöre bu karakterin 1-2 referans fotoğrafını koyun (yüz net, önden, sade arka plan).
+Referans yoksa bot yine çalışır ama yüz her gün biraz farklı çıkabilir.
+Fotoğraf üretmek için README'deki 'Karakter fotoğrafları' bölümüne bakın.

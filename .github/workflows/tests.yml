@@ -2,7 +2,7 @@ name: Testler
 
 on:
   push:
-    paths: ["influencer_bot/**", "tests/**", "requirements.txt", "persona.yaml"]
+    paths: ["influencer_bot/**", "tests/**", "requirements.txt", "brand.yaml"]
   pull_request:
 
 jobs:

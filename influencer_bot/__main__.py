@@ -2,8 +2,9 @@
 
   python -m influencer_bot generate        create today's post (image + caption), do not publish
   python -m influencer_bot publish         publish the newest ready post
-  python -m influencer_bot run             generate + publish in one go (use with IMAGE_HOST=imgbb)
-  python -m influencer_bot check           verify Gemini key, Instagram token and persona file
+  python -m influencer_bot run             generate + publish in one go (MEDIA_HOST=imgbb, photos only)
+  python -m influencer_bot media-url       print the public URL of the newest ready post
+  python -m influencer_bot check           verify keys, brand file, cast photos and products
   python -m influencer_bot refresh-token   print a fresh 60-day Instagram token
   python -m influencer_bot summary         print a Markdown report of the newest post
 """
@@ -14,7 +15,7 @@ import logging
 import os
 import sys
 
-from .config import ConfigError, Persona, Settings
+from .config import Brand, ConfigError, Settings
 from .storage import Storage
 
 log = logging.getLogger("influencer_bot")
@@ -37,7 +38,7 @@ def _llm(settings: Settings):
     from .llm import GeminiLLM
 
     settings.require("gemini_api_key")
-    return GeminiLLM(settings.gemini_api_key or "", settings.text_model, settings.image_model)
+    return GeminiLLM(settings.gemini_api_key or "", settings.text_model, settings.image_model, settings.video_model)
 
 
 def _ig(settings: Settings):
@@ -50,8 +51,8 @@ def _ig(settings: Settings):
 def cmd_generate(settings: Settings, args: argparse.Namespace) -> int:
     from .pipeline import generate
 
-    persona = Persona.load(settings.persona_file)
-    post = generate(_llm(settings), persona, Storage(settings.data_dir))
+    brand = Brand.load(settings.brand_file)
+    post = generate(_llm(settings), brand, Storage(settings.data_dir), force_format=settings.force_format)
     print(post.id)
     return EXIT_OK
 
@@ -71,24 +72,30 @@ def cmd_publish(settings: Settings, args: argparse.Namespace) -> int:
 def cmd_run(settings: Settings, args: argparse.Namespace) -> int:
     from .pipeline import generate, publish
 
-    if settings.image_host == "github" and not settings.dry_run:
-        raise ConfigError("'run' komutu IMAGE_HOST=imgbb ile çalışır. GitHub barındırmada 'generate' ve 'publish' ayrı çalıştırılır.")
+    if settings.media_host != "imgbb" and not settings.dry_run:
+        raise ConfigError("'run' komutu MEDIA_HOST=imgbb ile çalışır. GitHub'da 'generate' ve 'publish' ayrı çalıştırılır.")
     storage = Storage(settings.data_dir)
-    post = generate(_llm(settings), Persona.load(settings.persona_file), storage)
+    post = generate(_llm(settings), Brand.load(settings.brand_file), storage, force_format="image")
     publish(settings, storage, post)
     return EXIT_OK
 
 
 def cmd_check(settings: Settings, args: argparse.Namespace) -> int:
     ok = True
+    storage = Storage(settings.data_dir)
     try:
-        persona = Persona.load(settings.persona_file)
-        print(f"✅ Persona: {persona.name} ({len(persona.themes)} tema)")
+        brand = Brand.load(settings.brand_file)
+        print(f"✅ Marka: {brand.name} · {len(brand.cast)} karakter · {len(brand.scenes)} sahne · türler: {', '.join(brand.formats)}")
+        for c in brand.cast:
+            n = len(storage.character_refs(c.id))
+            print(f"   {'✅' if n else '⚠️ '} {c.name}: {n} referans fotoğraf" + ("" if n else f" (cast/{c.id}/ klasörüne ekleyin)"))
+        products = storage.products()
+        print(f"{'✅' if products else '⚠️ '} Ürün: {len(products)} adet")
+        for p in products:
+            print(f"   {'✅' if p.photos else '⚠️ '} {p.name}: {len(p.photos)} fotoğraf" + ("" if p.photos else f" (products/{p.id}/ klasörüne ekleyin)"))
     except ConfigError as exc:
-        print(f"❌ Persona: {exc}")
+        print(f"❌ Marka: {exc}")
         ok = False
-    refs = Storage(settings.data_dir).references()
-    print(f"{'✅' if refs else '⚠️ '} Referans fotoğraf: {len(refs)} adet" + ("" if refs else " (references/ klasörüne ekleyin)"))
     try:
         reply = _llm(settings).generate_json(
             'Reply with {"ok": true}', {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}
@@ -121,6 +128,18 @@ def cmd_refresh_token(settings: Settings, args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_media_url(settings: Settings, args: argparse.Namespace) -> int:
+    from .pipeline import media_url
+
+    storage = Storage(settings.data_dir)
+    post = storage.get(args.post_id) if args.post_id else storage.latest_ready()
+    if post is None:
+        log.error("Hazır gönderi yok.")
+        return EXIT_ERROR
+    print(media_url(settings, storage, post))
+    return EXIT_OK
+
+
 def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
     storage = Storage(settings.data_dir)
     post = next(storage.iter_posts(), None)
@@ -129,16 +148,16 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
         return EXIT_OK
     d = post.data
     review = d.get("review") or {}
+    plan = d.get("plan") or {}
     lines = [
         f"## {d.get('idea', {}).get('title', post.id)}",
-        f"**Durum:** {d.get('status')}  ·  **Tema:** {d.get('theme')}  ·  "
-        f"**Puan:** {review.get('score', '-')} / yüz {review.get('face_match', '-')}  ·  "
-        f"**Deneme:** {len(d.get('attempts', []))}",
+        f"**Durum:** {d.get('status')}  ·  **Tür:** {d.get('format')}  ·  **Sahne:** {plan.get('scene')}",
+        f"**Kadro:** {', '.join(plan.get('cast') or [])}  ·  **Ürün:** {plan.get('product')}",
+        f"**Puan:** {review.get('score', '-')} · kişi {review.get('identity_match', '-')} · "
+        f"ürün {review.get('product_match', '-')}  ·  **Deneme:** {len(d.get('attempts', []))}",
     ]
     if d.get("permalink"):
         lines.append(f"**Instagram:** {d['permalink']}")
-    if d.get("image_url"):
-        lines.append(f"\n![görsel]({d['image_url']})")
     lines += ["", "```", d.get("caption", ""), "```"]
     if d.get("error"):
         lines.append(f"\n> ❌ {d['error']}")
@@ -152,6 +171,7 @@ COMMANDS = {
     "run": cmd_run,
     "check": cmd_check,
     "refresh-token": cmd_refresh_token,
+    "media-url": cmd_media_url,
     "summary": cmd_summary,
 }
 
@@ -159,7 +179,7 @@ COMMANDS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="influencer_bot", description="AI influencer otomatik paylaşım botu")
     parser.add_argument("command", choices=COMMANDS)
-    parser.add_argument("--post-id", help="publish: belirli bir gönderiyi paylaş")
+    parser.add_argument("--post-id", help="publish/media-url: belirli bir gönderi")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     _setup_logging(args.verbose or os.getenv("RUNNER_DEBUG") == "1")

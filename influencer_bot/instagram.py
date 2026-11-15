@@ -83,13 +83,22 @@ class InstagramClient:
         return self._request("GET", f"{self.root}/refresh_access_token", grant_type="ig_refresh_token")
 
     # ── publishing ──
-    def publish_image(
-        self, image_url: str, caption: str, ai_label: bool = True, timeout: float = 180, poll: float = 5
-    ) -> PublishResult:
+    def publish_image(self, image_url: str, caption: str, ai_label: bool = True,
+                      timeout: float = 180, poll: float = 5) -> PublishResult:
+        return self._publish({"image_url": image_url, "caption": caption}, ai_label, timeout, poll)
+
+    def publish_reel(self, video_url: str, caption: str, cover_url: str | None = None, ai_label: bool = True,
+                     timeout: float = 600, poll: float = 10) -> PublishResult:
+        params: dict[str, Any] = {"media_type": "REELS", "video_url": video_url, "caption": caption,
+                                  "share_to_feed": "true"}
+        if cover_url:
+            params["cover_url"] = cover_url
+        return self._publish(params, ai_label, timeout, poll)
+
+    def _publish(self, params: dict[str, Any], ai_label: bool, timeout: float, poll: float) -> PublishResult:
         uid = self.resolve_user_id()
-        params: dict[str, Any] = {"image_url": image_url, "caption": caption}
         if ai_label:
-            params["is_ai_generated"] = "true"  # adds Instagram's official "AI info" label
+            params["is_ai_generated"] = "true"  # Instagram's official "AI info" label
         container = self._request("POST", f"{self.base}/{uid}/media", **params)["id"]
         log.info("Medya kapsayıcısı oluşturuldu: %s", container)
 
@@ -99,9 +108,9 @@ class InstagramClient:
             if status in ("FINISHED", None):
                 break
             if status in ("ERROR", "EXPIRED"):
-                raise InstagramError(f"Instagram görseli işleyemedi (durum: {status}). Görsel URL'si herkese açık mı?")
+                raise InstagramError(f"Instagram medyayı işleyemedi (durum: {status}). Dosya URL'si herkese açık mı?")
             if waited >= timeout:
-                raise InstagramError("Instagram görseli zamanında işlemedi.")
+                raise InstagramError("Instagram medyayı zamanında işlemedi.")
             self.sleep(poll)
             waited += poll
 

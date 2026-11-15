@@ -11,9 +11,16 @@ on:
         description: "Deneme modu (Instagram'a gönderme)"
         type: boolean
         default: false
+      format:
+        description: "Paylaşım türü"
+        type: choice
+        options: [otomatik, image, reel]
+        default: otomatik
 
 permissions:
-  contents: write
+  contents: write   # gönderi kayıtlarını depoya yazmak için
+  pages: write      # fotoğraf/videoyu GitHub Pages'te yayınlamak için
+  id-token: write
 
 concurrency:
   group: daily-post
@@ -22,13 +29,17 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
+    environment:
+      name: github-pages
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
       IG_USER_ID: ${{ secrets.IG_USER_ID }}
       IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
-      IMAGE_HOST: ${{ vars.IMAGE_HOST || 'github' }}
+      MEDIA_HOST: ${{ vars.MEDIA_HOST || 'pages' }}
+      GEMINI_VIDEO_MODEL: ${{ vars.GEMINI_VIDEO_MODEL }}
+      FORCE_FORMAT: ${{ inputs.format != 'otomatik' && inputs.format || '' }}
       GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
       GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL }}
       DRY_RUN: ${{ inputs.dry_run == true && 'true' || vars.DRY_RUN || 'false' }}
@@ -45,7 +56,7 @@ jobs:
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
 
-      - name: Fikir, görsel, kontrol ve açıklama üret
+      - name: Plan, fikir, görsel/video, kontrol ve açıklama üret
         run: python -m influencer_bot generate
 
       - name: Taslağı depoya kaydet
@@ -59,18 +70,28 @@ jobs:
           git push --quiet
           echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Görselin herkese açık olmasını bekle
-        if: env.IMAGE_HOST == 'github' && env.DRY_RUN != 'true'
+      - name: Medyayı GitHub Pages için paketle
+        if: env.MEDIA_HOST == 'pages' && env.DRY_RUN != 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: GitHub Pages'te yayınla
+        if: env.MEDIA_HOST == 'pages' && env.DRY_RUN != 'true'
+        uses: actions/deploy-pages@v4
+
+      - name: Dosyanın internette yayına girmesini bekle
+        if: env.MEDIA_HOST != 'imgbb' && env.DRY_RUN != 'true'
         env:
-          REF: ${{ steps.save.outputs.ref }}
+          PUBLIC_REF: ${{ steps.save.outputs.ref }}
         run: |
-          IMG=$(git show --name-only --pretty=format: HEAD | grep 'image.jpg$' | head -1)
-          URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${REF}/${IMG}"
-          for i in $(seq 1 12); do
-            [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ] && echo "Hazır: $URL" && exit 0
-            sleep 5
+          URL=$(python -m influencer_bot media-url)
+          echo "Bekleniyor: $URL"
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ] && echo "Hazır." && exit 0
+            sleep 10
           done
-          echo "::error::Görsel URL'sine ulaşılamadı. Depo herkese açık (public) mı? Değilse IMAGE_HOST=imgbb kullanın."
+          echo "::error::Dosyaya 10 dakikada ulaşılamadı. Depo public mi ve Settings > Pages açık mı? README'ye bakın."
           exit 1
 
       - name: Instagram'a paylaş
