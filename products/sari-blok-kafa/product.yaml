@@ -7,4 +7,5 @@ description: >-
   cheeky embroidered smile. Worn with ski goggles over the eye opening.
 price: "[FİYAT] TL"
 sizes: Tek beden (yetişkin)
-active: true
+# Örgü + 3D tepe: baskıyla yapılamaz, ayrı üretim gerektirir. Üretirseniz true yapın.
+active: false

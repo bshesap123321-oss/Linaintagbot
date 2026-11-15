@@ -75,8 +75,13 @@ class FakeLLM:
 @pytest.fixture
 def workspace(tmp_path):
     shutil.copy(ROOT / "brand.yaml", tmp_path / "brand.yaml")
-    shutil.copytree(ROOT / "products", tmp_path / "products")
     shutil.copytree(ROOT / "cast", tmp_path / "cast")
+    for pid in ("biyikli-amca", "sari-blok-kafa"):
+        (tmp_path / "products" / pid).mkdir(parents=True)
+        (tmp_path / "products" / pid / "product.yaml").write_text(
+            f"name: {pid}\ndescription: a printed balaclava\nprice: '[FİYAT] TL'\n", encoding="utf-8")
+    (tmp_path / "products" / "eski").mkdir()
+    (tmp_path / "products" / "eski" / "product.yaml").write_text("name: x\ndescription: y\nactive: false\n", encoding="utf-8")
     (tmp_path / "products" / "biyikli-amca" / "front.png").write_bytes(png(500, 500, (220, 180, 160)))
     (tmp_path / "cast" / "lina" / "lina.png").write_bytes(png(400, 500))
     return tmp_path
@@ -110,6 +115,11 @@ def test_brand_validation(tmp_path):
     (tmp_path / "b.yaml").write_text("name: X\nabout: a\nvoice: b\ncast: [{id: a}]\nscenes: [x]\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="appearance"):
         Brand.load(tmp_path / "b.yaml")
+
+
+def test_repo_catalog_is_valid():
+    products = Storage(ROOT).products()
+    assert len(products) >= 8 and "sari-blok-kafa" not in {p.id for p in products}
 
 
 def test_products_and_refs(workspace):
