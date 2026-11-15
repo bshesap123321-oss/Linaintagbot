@@ -1,0 +1,4 @@
+google-genai>=1.30,<4
+requests>=2.31,<3
+pillow>=10.0
+pyyaml>=6.0

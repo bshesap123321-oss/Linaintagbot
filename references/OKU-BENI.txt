@@ -1,0 +1,9 @@
+Bu klasöre karakterin 1-3 adet referans fotoğrafını koyun (jpg, png veya webp).
+
+En iyi sonuç için:
+1. Yüzün net göründüğü, önden çekilmiş bir portre
+2. Boydan, sade arka planlı bir fotoğraf
+3. (İsteğe bağlı) 3/4 açıdan bir portre
+
+Bot her görselde bu fotoğrafları kullanır. Yüzün her gün aynı kalmasını sağlayan şey budur.
+Referans fotoğraf üretmek için README'deki "Referans fotoğrafı oluşturma" bölümüne bakın.

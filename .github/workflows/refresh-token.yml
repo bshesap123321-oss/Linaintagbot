@@ -1,0 +1,38 @@
+name: Instagram token yenile
+
+# Instagram uzun süreli token'ları 60 gün geçerlidir.
+# Bu iş her ayın 1'inde token'ı yeniler ve IG_ACCESS_TOKEN secret'ını
+# otomatik günceller. Bunun için GH_PAT secret'ı gerekir (README'ye bakın).
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Token'ı yenile ve kaydet
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_PAT secret'ı tanımlı değil. Token otomatik güncellenemez; README'deki adımı uygulayın."
+            exit 1
+          fi
+          NEW_TOKEN=$(python -m influencer_bot refresh-token)
+          echo "::add-mask::$NEW_TOKEN"
+          gh secret set IG_ACCESS_TOKEN --body "$NEW_TOKEN" --repo "$GITHUB_REPOSITORY"
+          echo "IG_ACCESS_TOKEN güncellendi."

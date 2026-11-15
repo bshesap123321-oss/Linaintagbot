@@ -1,0 +1,91 @@
+name: Günlük paylaşım
+
+on:
+  schedule:
+    # GitHub saatleri UTC'dir. 16:00 UTC = 19:00 Türkiye.
+    # Günde iki paylaşım için ikinci bir satır ekleyin, örn: - cron: "0 7 * * *"
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Deneme modu (Instagram'a gönderme)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
+      IMAGE_HOST: ${{ vars.IMAGE_HOST || 'github' }}
+      GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
+      GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL }}
+      DRY_RUN: ${{ inputs.dry_run == true && 'true' || vars.DRY_RUN || 'false' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Fikir, görsel, kontrol ve açıklama üret
+        run: python -m influencer_bot generate
+
+      - name: Taslağı depoya kaydet
+        id: save
+        run: |
+          git config user.name  "influencer-bot"
+          git config user.email "influencer-bot@users.noreply.github.com"
+          git add posts
+          git commit -m "Yeni gönderi taslağı"
+          git pull --rebase --quiet
+          git push --quiet
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Görselin herkese açık olmasını bekle
+        if: env.IMAGE_HOST == 'github' && env.DRY_RUN != 'true'
+        env:
+          REF: ${{ steps.save.outputs.ref }}
+        run: |
+          IMG=$(git show --name-only --pretty=format: HEAD | grep 'image.jpg$' | head -1)
+          URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${REF}/${IMG}"
+          for i in $(seq 1 12); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ] && echo "Hazır: $URL" && exit 0
+            sleep 5
+          done
+          echo "::error::Görsel URL'sine ulaşılamadı. Depo herkese açık (public) mı? Değilse IMAGE_HOST=imgbb kullanın."
+          exit 1
+
+      - name: Instagram'a paylaş
+        env:
+          PUBLIC_REF: ${{ steps.save.outputs.ref }}
+        run: python -m influencer_bot publish
+
+      - name: Sonucu kaydet
+        if: always() && steps.save.outcome == 'success'
+        run: |
+          git add posts
+          git diff --cached --quiet || git commit -m "Paylaşım sonucu"
+          git pull --rebase --quiet
+          git push --quiet
+
+      - name: Özet
+        if: always()
+        run: python -m influencer_bot summary >> "$GITHUB_STEP_SUMMARY"
